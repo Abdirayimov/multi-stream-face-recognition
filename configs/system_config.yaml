@@ -1,0 +1,73 @@
+# face_pipeline reference configuration
+#
+# All values here are defaults suitable for the synthetic / public-data
+# scenarios documented in README.md. Production tuning is left to the user.
+
+pipeline:
+  # Maximum number of cameras attached to a single nvstreammux instance.
+  # In practice the upper bound is GPU memory + decoder count.
+  max_streams: 8
+
+  # Target inference batch (per nvinfer push). Set lower for low-latency
+  # interactive cases, higher for throughput-bound deployments.
+  batch_size: 8
+
+  # nvstreammux batched-push timeout (microseconds). Drains partial batches
+  # when not enough frames arrive in time.
+  batched_push_timeout_us: 40000
+
+  # Output frame width / height after nvstreammux. The detector resizes
+  # internally; this only affects downstream rendering / encoding.
+  muxer_width: 1280
+  muxer_height: 720
+
+detection:
+  # Path to a serialized TensorRT engine for SCRFD.
+  engine_path: "models/scrfd_10g_fp16.engine"
+  input_width: 640
+  input_height: 640
+  confidence_threshold: 0.5
+  nms_iou_threshold: 0.4
+
+encoding:
+  # Path to a serialized TensorRT engine for ArcFace (R50, 512-d).
+  engine_path: "models/arcface_r50_fp16.engine"
+  input_size: 112
+  embedding_dim: 512
+  # How many face crops to encode in a single TRT inference call.
+  batch_size: 32
+
+faiss:
+  # "ivf_flat" or "ivf_pq". The searcher will refuse "ivf_pq" below this
+  # threshold and fall back to ivf_flat automatically.
+  index_type: "ivf_flat"
+  ivf_pq_min_size: 100000
+
+  # Index hyperparameters. Computed automatically when build() is called
+  # with `nlist == 0`.
+  nlist: 0
+  nprobe: 32
+  pq_m: 64
+
+  # Cosine similarity is implemented via inner product on L2-normalized
+  # embeddings. Switch to "l2" if you store raw vectors.
+  metric: "ip"
+
+  # GPU device for the FAISS index. Set to -1 to keep the index on CPU.
+  gpu_id: 0
+
+recognition:
+  # An identity is reported only when `top1_similarity >= threshold`
+  # AND `top1 - top2 >= margin_min`. The margin guards against ambiguous
+  # matches in dense enrollments.
+  threshold: 0.45
+  margin_min: 0.04
+
+  # Top-K to return per probe.
+  top_k: 5
+
+logging:
+  # "trace" | "debug" | "info" | "warn" | "error" | "critical"
+  level: "info"
+  # If true, emit one JSON object per line. Otherwise plain colored output.
+  json: true

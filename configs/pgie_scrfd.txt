@@ -1,0 +1,24 @@
+# nvinfer plugin configuration for SCRFD face detection.
+#
+# This file is consumed by gst-nvinfer when the C++ pipeline attaches a
+# pre-trained SCRFD engine to the streammux output. Most fields mirror the
+# values in configs/system_config.yaml; keep them in sync if you change one.
+
+[property]
+gpu-id=0
+net-scale-factor=0.0078125
+offsets=127.5;127.5;127.5
+model-color-format=1
+infer-dims=3;640;640
+batch-size=8
+network-mode=2
+network-type=100
+num-detected-classes=1
+gie-unique-id=1
+process-mode=1
+output-tensor-meta=1
+maintain-aspect-ratio=1
+symmetric-padding=1
+parse-bbox-func-name=NvDsInferParseCustomSCRFD
+custom-lib-path=lib/libnvds_infercustomparser_scrfd.so
+model-engine-file=models/scrfd_10g_fp16.engine
