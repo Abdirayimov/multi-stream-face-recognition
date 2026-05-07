@@ -1,0 +1,30 @@
+# docker-compose.yml
+#
+# Single-service compose for local development. Mounts:
+#   ./configs   -> /app/configs   (read-only)
+#   ./models    -> /app/models    (rw, holds ONNX + cached TRT engines)
+#   ./data      -> /app/data      (rw, e.g. synthetic test streams)
+
+services:
+  face_server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: face-pipeline:0.1.0
+    environment:
+      - LOG_LEVEL=info
+      - ENGINES_DIR=/app/models/engines
+      - ONNX_DIR=/app/models/onnx
+    volumes:
+      - ./configs:/app/configs:ro
+      - ./models:/app/models
+      - ./data:/app/data
+    network_mode: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
