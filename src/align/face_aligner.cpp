@@ -9,8 +9,10 @@ namespace face_pipeline::align {
 namespace {
 
 /// Canonical 5-point reference for the 112x112 ArcFace template, as
-/// published in the original insightface release.
-constexpr std::array<cv::Point2f, 5> kReference112{{
+/// published in the original insightface release. cv::Point2f does not
+/// satisfy the literal-type requirement so this is plain const, not
+/// constexpr.
+const std::array<cv::Point2f, 5> kReference112{{
     {38.2946f, 51.6963f},   // left eye
     {73.5318f, 51.5014f},   // right eye
     {56.0252f, 71.7366f},   // nose

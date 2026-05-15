@@ -16,26 +16,40 @@ endif()
 
 # ---- Options ----
 option(BUILD_TOOLS "Build CLI tools (face_enroll, benchmark)" ON)
+option(BUILD_DEEPSTREAM "Build the DeepStream pipeline (requires DeepStream SDK + GStreamer)" ON)
+option(BUILD_FAISS "Build the FAISS-based searcher (requires FAISS GPU)" ON)
 option(BUILD_TESTS "Build unit tests" OFF)
 
 # ---- Dependencies ----
 find_package(CUDAToolkit 12.0 REQUIRED)
-find_package(OpenCV 4.5 REQUIRED COMPONENTS core imgproc imgcodecs cudaimgproc cudawarping)
+find_package(OpenCV 4.5 REQUIRED COMPONENTS core imgproc imgcodecs)
 find_package(Eigen3 3.4 REQUIRED NO_MODULE)
 find_package(spdlog REQUIRED)
 find_package(yaml-cpp REQUIRED)
-
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GST REQUIRED IMPORTED_TARGET
-    gstreamer-1.0
-    gstreamer-app-1.0
-    gobject-2.0
-    glib-2.0
-)
-
-find_package(FAISS REQUIRED)
-find_package(DeepStream 8.0 REQUIRED)
 find_package(TensorRT REQUIRED)
+
+if(BUILD_FAISS)
+    find_package(FAISS)
+    if(NOT FAISS_FOUND)
+        message(WARNING "FAISS not found; disabling FAISS searcher")
+        set(BUILD_FAISS OFF)
+    endif()
+endif()
+
+if(BUILD_DEEPSTREAM)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(GST REQUIRED IMPORTED_TARGET
+        gstreamer-1.0
+        gstreamer-app-1.0
+        gobject-2.0
+        glib-2.0
+    )
+    find_package(DeepStream 8.0)
+    if(NOT DeepStream_FOUND)
+        message(WARNING "DeepStream SDK not found; disabling DeepStream pipeline")
+        set(BUILD_DEEPSTREAM OFF)
+    endif()
+endif()
 
 # ---- Library: face_pipeline (static) ----
 file(GLOB_RECURSE FACE_PIPELINE_SOURCES
@@ -47,13 +61,19 @@ file(GLOB_RECURSE FACE_PIPELINE_SOURCES
     "${CMAKE_SOURCE_DIR}/src/pipeline/*.cpp"
 )
 
+if(NOT BUILD_FAISS)
+    list(FILTER FACE_PIPELINE_SOURCES EXCLUDE REGEX "faiss_searcher\\.cpp$")
+endif()
+if(NOT BUILD_DEEPSTREAM)
+    list(FILTER FACE_PIPELINE_SOURCES EXCLUDE REGEX "deepstream_pipeline\\.cpp$")
+endif()
+
 add_library(face_pipeline STATIC ${FACE_PIPELINE_SOURCES})
 target_include_directories(face_pipeline
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
         ${OpenCV_INCLUDE_DIRS}
         ${TensorRT_INCLUDE_DIRS}
-        ${DeepStream_INCLUDE_DIRS}
 )
 target_link_libraries(face_pipeline
     PUBLIC
@@ -63,13 +83,22 @@ target_link_libraries(face_pipeline
         Eigen3::Eigen
         spdlog::spdlog
         yaml-cpp::yaml-cpp
-        FAISS::FAISS
         TensorRT::nvinfer
         TensorRT::nvonnxparser
+)
+if(BUILD_FAISS)
+    target_link_libraries(face_pipeline PUBLIC FAISS::FAISS)
+    target_compile_definitions(face_pipeline PUBLIC FACE_PIPELINE_HAVE_FAISS=1)
+endif()
+if(BUILD_DEEPSTREAM)
+    target_include_directories(face_pipeline PUBLIC ${DeepStream_INCLUDE_DIRS})
+    target_link_libraries(face_pipeline PUBLIC
         DeepStream::nvds_meta
         DeepStream::nvbufsurface
         PkgConfig::GST
-)
+    )
+    target_compile_definitions(face_pipeline PUBLIC FACE_PIPELINE_HAVE_DEEPSTREAM=1)
+endif()
 set_target_properties(face_pipeline PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # ---- Executable: face_server ----
@@ -101,12 +130,13 @@ install(DIRECTORY configs/ DESTINATION share/face_pipeline/configs)
 # ---- Status summary ----
 message(STATUS "")
 message(STATUS "face_pipeline ${PROJECT_VERSION} configuration:")
-message(STATUS "  Build type:   ${CMAKE_BUILD_TYPE}")
-message(STATUS "  C++ standard: ${CMAKE_CXX_STANDARD}")
-message(STATUS "  CUDA:         ${CUDAToolkit_VERSION}")
-message(STATUS "  OpenCV:       ${OpenCV_VERSION}")
-message(STATUS "  TensorRT:     ${TensorRT_VERSION}")
-message(STATUS "  DeepStream:   ${DeepStream_VERSION}")
-message(STATUS "  Build tools:  ${BUILD_TOOLS}")
-message(STATUS "  Build tests:  ${BUILD_TESTS}")
+message(STATUS "  Build type:        ${CMAKE_BUILD_TYPE}")
+message(STATUS "  C++ standard:      ${CMAKE_CXX_STANDARD}")
+message(STATUS "  CUDA:              ${CUDAToolkit_VERSION}")
+message(STATUS "  OpenCV:            ${OpenCV_VERSION}")
+message(STATUS "  TensorRT:          ${TensorRT_VERSION}")
+message(STATUS "  FAISS path:        ${BUILD_FAISS}")
+message(STATUS "  DeepStream path:   ${BUILD_DEEPSTREAM}")
+message(STATUS "  Build tools:       ${BUILD_TOOLS}")
+message(STATUS "  Build tests:       ${BUILD_TESTS}")
 message(STATUS "")
