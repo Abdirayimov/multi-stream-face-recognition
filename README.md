@@ -15,6 +15,36 @@
 
 ---
 
+## Demo
+
+<p align="center">
+  <img src="docs/assets/face_detect_demo.jpg" width="760" alt="SCRFD detecting all 29 faces in the 1927 Solvay Conference photo, with 5-point landmarks">
+</p>
+
+The actual output of the C++ `face_detect` tool: SCRFD (TensorRT FP16)
+run on the public-domain 1927 Solvay Conference photograph. It finds
+all **29 attendees** — every face boxed, each with its five landmarks
+(eyes, nose, mouth corners) drawn — at a 640×640 detector input even
+though the faces are small in a 3000-px group shot.
+
+The detector resolves its output tensors by *shape* rather than by
+name, so it works directly with insightface's stock `buffalo_l`
+`det_10g` export (numeric output names) as well as hand-named exports.
+
+```bash
+# model prep: the SCRFD ONNX from the insightface buffalo_l pack
+./scripts/download_models.sh
+./scripts/build_engines.sh                 # ONNX -> FP16 engine
+./build/face_detect --config configs/demo_faces.yaml \
+    --input group.jpg --output annotated.jpg
+```
+
+> Built and run inside the project's DeepStream Docker image
+> (detection-only build: no FAISS / DeepStream needed for this tool)
+> on an RTX 4080.
+
+---
+
 ## Why this exists
 
 Multi-camera face recognition is no longer a model problem. Modern detectors

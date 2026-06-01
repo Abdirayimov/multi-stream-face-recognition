@@ -22,7 +22,7 @@ option(BUILD_TESTS "Build unit tests" OFF)
 
 # ---- Dependencies ----
 find_package(CUDAToolkit 12.0 REQUIRED)
-find_package(OpenCV 4.5 REQUIRED COMPONENTS core imgproc imgcodecs)
+find_package(OpenCV 4.5 REQUIRED COMPONENTS core imgproc imgcodecs videoio)
 find_package(Eigen3 3.4 REQUIRED NO_MODULE)
 find_package(spdlog REQUIRED)
 find_package(yaml-cpp REQUIRED)
@@ -102,16 +102,28 @@ endif()
 set_target_properties(face_pipeline PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # ---- Executable: face_server ----
-add_executable(face_server src/main.cpp)
-target_link_libraries(face_server PRIVATE face_pipeline)
+# The full server wires the DeepStream pipeline to the FAISS searcher,
+# so it only builds when both are available.
+if(BUILD_FAISS AND BUILD_DEEPSTREAM)
+    add_executable(face_server src/main.cpp)
+    target_link_libraries(face_server PRIVATE face_pipeline)
+endif()
 
 # ---- Tools ----
 if(BUILD_TOOLS)
-    add_executable(face_enroll tools/face_enroll.cpp)
-    target_link_libraries(face_enroll PRIVATE face_pipeline)
+    # face_detect needs only the SCRFD detector, so it builds in every
+    # configuration (incl. detection-only builds without FAISS/DeepStream).
+    add_executable(face_detect tools/face_detect.cpp)
+    target_link_libraries(face_detect PRIVATE face_pipeline)
 
-    add_executable(face_benchmark tools/benchmark.cpp)
-    target_link_libraries(face_benchmark PRIVATE face_pipeline)
+    # enroll + benchmark exercise the FAISS index.
+    if(BUILD_FAISS)
+        add_executable(face_enroll tools/face_enroll.cpp)
+        target_link_libraries(face_enroll PRIVATE face_pipeline)
+
+        add_executable(face_benchmark tools/benchmark.cpp)
+        target_link_libraries(face_benchmark PRIVATE face_pipeline)
+    endif()
 endif()
 
 # ---- Tests ----
@@ -121,8 +133,13 @@ if(BUILD_TESTS)
 endif()
 
 # ---- Install ----
-install(TARGETS face_server RUNTIME DESTINATION bin)
-if(BUILD_TOOLS)
+if(TARGET face_server)
+    install(TARGETS face_server RUNTIME DESTINATION bin)
+endif()
+if(TARGET face_detect)
+    install(TARGETS face_detect RUNTIME DESTINATION bin)
+endif()
+if(TARGET face_enroll)
     install(TARGETS face_enroll face_benchmark RUNTIME DESTINATION bin)
 endif()
 install(DIRECTORY configs/ DESTINATION share/face_pipeline/configs)

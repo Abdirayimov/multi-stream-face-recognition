@@ -4,7 +4,9 @@
 #include <opencv2/core/cuda.hpp>
 
 #include <array>
+#include <map>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "face_pipeline/config/system_config.hpp"
@@ -54,6 +56,20 @@ private:
 
     // Pre-allocated host scratch space, sized on first use.
     std::vector<float> input_scratch_;
+
+    std::string input_name_;
+    /// Output binding names per stride, resolved from binding shapes so
+    /// the detector works with either the `score_8`/`bbox_8`/`kps_8`
+    /// naming or the numeric output names that insightface's stock
+    /// SCRFD exports (e.g. buffalo_l det_10g) produce.
+    struct StrideBindings {
+        std::string score;  ///< (N, 1)
+        std::string bbox;   ///< (N, 4)
+        std::string kps;    ///< (N, 10)
+    };
+    std::map<int, StrideBindings> stride_bindings_;
+
+    void resolve_bindings_();
 };
 
 }  // namespace face_pipeline::trt
