@@ -2,17 +2,18 @@
 
 #include <spdlog/spdlog.h>
 
+#include <optional>
 #include <utility>
 #include <vector>
 
 #include "face_pipeline/align/face_aligner.hpp"
 #include "face_pipeline/indexing/faiss_searcher.hpp"
+#include "face_pipeline/pipeline/match_decision.hpp"
 #include "face_pipeline/trt/arcface_encoder.hpp"
 
 namespace face_pipeline::pipeline {
 
-ProbeChain::ProbeChain(align::FaceAligner& aligner,
-                       trt::ArcFaceEncoder& encoder,
+ProbeChain::ProbeChain(align::FaceAligner& aligner, trt::ArcFaceEncoder& encoder,
                        indexing::FaissSearcher& searcher,
                        const config::RecognitionConfig& recognition_cfg)
     : aligner_(aligner),
@@ -27,7 +28,8 @@ FrameResult ProbeChain::process(FrameMeta meta, const cv::Mat& image,
     result.faces = std::move(detections);
 
     if (result.faces.empty()) {
-        if (callback_) callback_(result);
+        if (callback_)
+            callback_(result);
         return result;
     }
 
@@ -48,25 +50,30 @@ FrameResult ProbeChain::process(FrameMeta meta, const cv::Mat& image,
     //    high concurrency; we keep it simple here for clarity.
     if (searcher_.size() == 0) {
         SPDLOG_DEBUG("ProbeChain: empty index, skipping FAISS search");
-        if (callback_) callback_(result);
+        if (callback_)
+            callback_(result);
         return result;
     }
 
     for (auto& f : result.faces) {
         const auto hits = searcher_.search(*f.embedding, recognition_cfg_.top_k);
-        if (hits.empty()) continue;
+        if (hits.empty())
+            continue;
+
+        const std::optional<float> second =
+            (hits.size() > 1) ? std::optional<float>(hits[1].similarity) : std::nullopt;
 
         f.top1_similarity = hits.front().similarity;
-        f.margin_to_top2 =
-            (hits.size() > 1) ? hits[0].similarity - hits[1].similarity : hits.front().similarity;
+        f.margin_to_top2 = compute_margin(f.top1_similarity, second);
 
-        if (f.top1_similarity >= recognition_cfg_.threshold &&
-            f.margin_to_top2 >= recognition_cfg_.margin_min) {
+        if (match_decision(f.top1_similarity, second, recognition_cfg_.threshold,
+                           recognition_cfg_.margin_min)) {
             f.matched_id = hits.front().id;
         }
     }
 
-    if (callback_) callback_(result);
+    if (callback_)
+        callback_(result);
     return result;
 }
 

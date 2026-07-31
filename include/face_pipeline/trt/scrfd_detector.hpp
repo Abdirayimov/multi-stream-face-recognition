@@ -1,26 +1,23 @@
 #pragma once
 
-#include <opencv2/core.hpp>
-#include <opencv2/core/cuda.hpp>
-
 #include <array>
 #include <map>
 #include <memory>
+#include <opencv2/core.hpp>
+#include <opencv2/core/cuda.hpp>
 #include <string>
 #include <vector>
 
 #include "face_pipeline/config/system_config.hpp"
+#include "face_pipeline/trt/scrfd_postprocess.hpp"
 
 namespace face_pipeline::trt {
 
 class TrtEngine;
 
-/// One face detection produced by SCRFD.
-struct FaceDetection {
-    cv::Rect2f bbox;                       ///< In original image coordinates.
-    std::array<cv::Point2f, 5> landmarks;  ///< Eye L/R, nose, mouth L/R.
-    float score = 0.0f;
-};
+// `FaceDetection` and the stride/anchor constants live in
+// scrfd_postprocess.hpp so the decoding math stays usable — and unit
+// testable — without linking TensorRT.
 
 /// SCRFD (Sample and Computation Redistribution for Face Detection) wrapper.
 ///
@@ -45,8 +42,7 @@ public:
 
     /// Batched detection over `images.size()` frames. The TRT engine must be
     /// built with a matching dynamic batch profile.
-    std::vector<std::vector<FaceDetection>> detect_batch(
-        const std::vector<cv::Mat>& images);
+    std::vector<std::vector<FaceDetection>> detect_batch(const std::vector<cv::Mat>& images);
 
     const config::DetectionConfig& config() const noexcept { return cfg_; }
 
