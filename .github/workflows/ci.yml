@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# GitHub-hosted runners carry no CUDA, TensorRT or DeepStream, so the full
+# pipeline cannot be built here. What CI does cover is the formatting, the
+# static analysis and the CPU-only algorithmic core with its unit tests.
+# Build the GPU stages locally or through docker/Dockerfile.
+
+jobs:
+  format:
+    name: clang-format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: sudo apt-get update && sudo apt-get install -y clang-format
+
+      - name: Check formatting
+        run: |
+          find src include tools tests -type f \
+               \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) -print0 \
+            | xargs -0 clang-format --dry-run --Werror
+
+  static-analysis:
+    name: cppcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cppcheck
+        run: sudo apt-get update && sudo apt-get install -y cppcheck
+
+      # tests/ is excluded: without the GoogleTest headers cppcheck cannot
+      # parse TEST(...) and reports every case as a syntax error. Third-party
+      # headers are absent for the same reason, hence the include suppressions.
+      - name: Run cppcheck
+        run: |
+          cppcheck --enable=warning,style,performance \
+                   --error-exitcode=1 \
+                   --inline-suppr \
+                   --suppress=missingInclude \
+                   --suppress=missingIncludeSystem \
+                   --suppress=unusedFunction \
+                   --suppress=useStlAlgorithm \
+                   --std=c++17 \
+                   -I include \
+                   src include tools
+
+  unit-tests:
+    name: CPU-only unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ninja-build \
+            libeigen3-dev libyaml-cpp-dev libopencv-dev
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DFACE_PIPELINE_CPU_ONLY=ON \
+                -DFACE_PIPELINE_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure

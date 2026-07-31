@@ -59,6 +59,10 @@ Embedding ArcFaceEncoder::encode(const cv::Mat& aligned_face) {
     if (out.empty()) {
         throw std::runtime_error("ArcFaceEncoder::encode produced no output");
     }
+    // `out.front()` is a reference into a local vector, not a local object,
+    // so there is no copy elision to defeat here — the move is what keeps
+    // this from copying a 512-float embedding.
+    // cppcheck-suppress returnStdMoveLocal
     return std::move(out.front());
 }
 
