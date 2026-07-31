@@ -2,12 +2,37 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <filesystem>
 #include <stdexcept>
 #include <string>
 
 namespace face_pipeline::config {
 
 namespace {
+
+/// Cosine similarity is bounded by [-1, 1], so recognition thresholds are
+/// too. A threshold outside that range silently accepts or rejects every
+/// probe, which is almost always a typo rather than intent.
+constexpr float kMinSimilarity = -1.0f;
+constexpr float kMaxSimilarity = 1.0f;
+
+/// TensorRT / DeepStream both expect detector input sizes that survive the
+/// stride-32 downsampling path without a ragged final feature map.
+constexpr std::uint32_t kInputSizeMultiple = 32;
+
+void require_positive(std::uint32_t value, const char* key) {
+    if (value == 0) {
+        throw std::runtime_error(std::string("config: ") + key + " must be greater than zero");
+    }
+}
+
+void require_in_range(float value, float lo, float hi, const char* key) {
+    if (!(value >= lo && value <= hi)) {
+        throw std::runtime_error(std::string("config: ") + key + " must be in [" +
+                                 std::to_string(lo) + ", " + std::to_string(hi) + "], got " +
+                                 std::to_string(value));
+    }
+}
 
 template <typename T>
 T require(const YAML::Node& node, const std::string& key) {
@@ -23,20 +48,71 @@ T optional(const YAML::Node& node, const std::string& key, T fallback) {
 }
 
 FaissIndexType parse_index_type(const std::string& s) {
-    if (s == "ivf_flat") return FaissIndexType::IVFFlat;
-    if (s == "ivf_pq") return FaissIndexType::IVFPQ;
+    if (s == "ivf_flat")
+        return FaissIndexType::IVFFlat;
+    if (s == "ivf_pq")
+        return FaissIndexType::IVFPQ;
     throw std::runtime_error("unknown faiss.index_type: " + s);
 }
 
 FaissMetric parse_metric(const std::string& s) {
-    if (s == "ip" || s == "inner_product") return FaissMetric::InnerProduct;
-    if (s == "l2") return FaissMetric::L2;
+    if (s == "ip" || s == "inner_product")
+        return FaissMetric::InnerProduct;
+    if (s == "l2")
+        return FaissMetric::L2;
     throw std::runtime_error("unknown faiss.metric: " + s);
 }
 
 }  // namespace
 
+void SystemConfig::validate() const {
+    require_positive(pipeline.max_streams, "pipeline.max_streams");
+    require_positive(pipeline.batch_size, "pipeline.batch_size");
+    require_positive(pipeline.muxer_width, "pipeline.muxer_width");
+    require_positive(pipeline.muxer_height, "pipeline.muxer_height");
+
+    if (detection.engine_path.empty()) {
+        throw std::runtime_error("config: detection.engine_path must not be empty");
+    }
+    require_positive(detection.input_width, "detection.input_width");
+    require_positive(detection.input_height, "detection.input_height");
+    if (detection.input_width % kInputSizeMultiple != 0 ||
+        detection.input_height % kInputSizeMultiple != 0) {
+        throw std::runtime_error("config: detection input size must be a multiple of " +
+                                 std::to_string(kInputSizeMultiple));
+    }
+    require_in_range(detection.confidence_threshold, 0.0f, 1.0f, "detection.confidence_threshold");
+    require_in_range(detection.nms_iou_threshold, 0.0f, 1.0f, "detection.nms_iou_threshold");
+
+    if (encoding.engine_path.empty()) {
+        throw std::runtime_error("config: encoding.engine_path must not be empty");
+    }
+    require_positive(encoding.input_size, "encoding.input_size");
+    require_positive(encoding.embedding_dim, "encoding.embedding_dim");
+    require_positive(encoding.batch_size, "encoding.batch_size");
+
+    require_positive(faiss.nprobe, "faiss.nprobe");
+    if (faiss.index_type == FaissIndexType::IVFPQ) {
+        require_positive(faiss.pq_m, "faiss.pq_m");
+        if (encoding.embedding_dim % faiss.pq_m != 0) {
+            throw std::runtime_error(
+                "config: faiss.pq_m must divide encoding.embedding_dim evenly");
+        }
+    }
+
+    require_in_range(recognition.threshold, kMinSimilarity, kMaxSimilarity,
+                     "recognition.threshold");
+    require_in_range(recognition.margin_min, 0.0f, kMaxSimilarity - kMinSimilarity,
+                     "recognition.margin_min");
+    require_positive(recognition.top_k, "recognition.top_k");
+}
+
 SystemConfig SystemConfig::load(const std::string& yaml_path) {
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(yaml_path, ec)) {
+        throw std::runtime_error("config file not found: " + yaml_path);
+    }
+
     const YAML::Node root = YAML::LoadFile(yaml_path);
     SystemConfig out;
 
@@ -89,6 +165,7 @@ SystemConfig SystemConfig::load(const std::string& yaml_path) {
         out.logging.json = optional<bool>(l, "json", true);
     }
 
+    out.validate();
     return out;
 }
 

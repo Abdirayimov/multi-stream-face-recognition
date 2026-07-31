@@ -67,9 +67,17 @@ struct SystemConfig {
     RecognitionConfig recognition;
     LoggingConfig logging;
 
-    /// Load a SystemConfig from a YAML file. Throws std::runtime_error on
-    /// parse failure or missing required fields.
+    /// Load a SystemConfig from a YAML file.
+    ///
+    /// @throws std::runtime_error if the file is missing, fails to parse,
+    ///         omits a required field, or carries an out-of-range value.
     static SystemConfig load(const std::string& yaml_path);
+
+    /// Check every field for internal consistency. Called by `load`; exposed
+    /// for callers that assemble a config programmatically.
+    ///
+    /// @throws std::runtime_error naming the offending key and its bounds.
+    void validate() const;
 };
 
 }  // namespace face_pipeline::config
