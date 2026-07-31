@@ -37,7 +37,7 @@ COPY tools/ ./tools/
 RUN cmake -S . -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DBUILD_TOOLS=ON \
-        -DBUILD_TESTS=OFF \
+        -DFACE_PIPELINE_BUILD_TESTS=OFF \
     && cmake --build build --parallel \
     && cmake --install build --prefix /opt/face_pipeline
 
