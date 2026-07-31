@@ -87,6 +87,9 @@ rather than every feature you would ship.
   and `face_benchmark` (per-stage latency / throughput)
 - Docker + docker-compose for reproducible runs
 - Structured JSON logging (`spdlog`)
+- GoogleTest suite (86 tests) over the algorithmic stages — Umeyama
+  transform, SCRFD decode, NMS, letterboxing, config validation and the
+  match decision — building without CUDA or TensorRT
 
 ## Architecture
 
@@ -196,6 +199,29 @@ You will need:
 The Docker build (`docker/Dockerfile`) uses the official NVIDIA DeepStream
 devel image as the toolchain and is the most portable way to build.
 
+### Tests
+
+The algorithmic stages sit in a `face_pipeline_core` target that links
+only OpenCV, Eigen and yaml-cpp, so the test suite builds on a machine
+with no NVIDIA stack at all:
+
+```bash
+cmake -S . -B build-tests -G Ninja \
+      -DFACE_PIPELINE_CPU_ONLY=ON \
+      -DFACE_PIPELINE_BUILD_TESTS=ON
+cmake --build build-tests -j
+ctest --test-dir build-tests --output-on-failure
+```
+
+86 tests cover the Umeyama similarity transform, letterboxing and its
+coordinate round-trip, SCRFD anchor counts and distance decoding, IoU
+and NMS, config parsing plus validation, and the recognition margin
+rule. GoogleTest is fetched at configure time (pinned to `v1.14.0`).
+
+The GPU stages — TensorRT engine wrapper, ArcFace encoder, FAISS
+searcher, DeepStream pipeline — are not unit tested; they need a device
+and a serialized engine. See [docs/building.md](docs/building.md).
+
 ## Configuration
 
 `configs/system_config.yaml` is the single source of truth for runtime
@@ -230,7 +256,6 @@ parameters. The most important sections:
 - [ ] PostgreSQL + pgvector store as a fallback / persistence layer
 - [ ] NvDCF tracker integration with per-track recognition fusion
 - [ ] INT8 calibration recipe with a reproducible calibration set
-- [ ] GoogleTest suite for the algorithmic stages
 
 ## License
 

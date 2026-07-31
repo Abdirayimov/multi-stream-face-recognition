@@ -32,7 +32,7 @@ Configure and build:
 cmake -S . -B build -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
       -DBUILD_TOOLS=ON \
-      -DBUILD_TESTS=OFF
+      -DFACE_PIPELINE_BUILD_TESTS=OFF
 cmake --build build -j
 ```
 
@@ -41,6 +41,39 @@ You will get three executables under `build/`:
 - `face_server` — the main pipeline binary
 - `face_enroll` — bulk index builder
 - `face_benchmark` — per-stage latency probe
+
+## Unit tests
+
+The algorithmic stages — config parsing, the Umeyama aligner, the SCRFD
+decoder, NMS, letterboxing and the match decision — live in a separate
+`face_pipeline_core` target that links only OpenCV, Eigen and yaml-cpp.
+That target and its tests build without CUDA, TensorRT, FAISS or
+DeepStream, which is what makes them runnable in CI:
+
+```bash
+cmake -S . -B build-tests -G Ninja \
+      -DFACE_PIPELINE_CPU_ONLY=ON \
+      -DFACE_PIPELINE_BUILD_TESTS=ON
+cmake --build build-tests -j
+ctest --test-dir build-tests --output-on-failure
+```
+
+Prerequisites for this path are just:
+
+```bash
+sudo apt-get install -y build-essential cmake ninja-build \
+    libeigen3-dev libyaml-cpp-dev libopencv-dev
+```
+
+GoogleTest is fetched at configure time (`FetchContent`, pinned to
+`v1.14.0`), so it does not need to be installed. Drop
+`-DFACE_PIPELINE_CPU_ONLY=ON` to build the tests alongside the full GPU
+pipeline on a machine that has the NVIDIA stack.
+
+The GPU stages — the TensorRT engine wrapper, the ArcFace encoder, the
+FAISS searcher and the DeepStream pipeline — are not unit tested; they
+need a device and a serialized engine, and are exercised through
+`face_benchmark` instead.
 
 ## Container build
 
