@@ -5,6 +5,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/Abdirayimov/multi-stream-face-recognition/actions/workflows/ci.yml"><img src="https://github.com/Abdirayimov/multi-stream-face-recognition/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/C%2B%2B-17-blue.svg" alt="C++17">
   <img src="https://img.shields.io/badge/CUDA-12.x-76B900.svg" alt="CUDA">
   <img src="https://img.shields.io/badge/TensorRT-8.6%2B-76B900.svg" alt="TensorRT">
@@ -221,6 +222,14 @@ rule. GoogleTest is fetched at configure time (pinned to `v1.14.0`).
 The GPU stages — TensorRT engine wrapper, ArcFace encoder, FAISS
 searcher, DeepStream pipeline — are not unit tested; they need a device
 and a serialized engine. See [docs/building.md](docs/building.md).
+
+### CI
+
+CI runs clang-format, cppcheck, and the CPU-only unit tests (Umeyama
+transform, SCRFD decode, NMS, letterbox, config). **The full CUDA /
+TensorRT / DeepStream build is not exercised on GitHub runners** — they
+carry none of those SDKs. Build it locally or through the provided
+Docker image.
 
 ## Configuration
 
