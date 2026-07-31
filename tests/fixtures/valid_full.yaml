@@ -1,0 +1,38 @@
+# Every field explicitly set, so the parser has nothing to default.
+pipeline:
+  max_streams: 16
+  batch_size: 4
+  batched_push_timeout_us: 33000
+  muxer_width: 1920
+  muxer_height: 1080
+
+detection:
+  engine_path: "models/scrfd_10g_fp16.engine"
+  input_width: 320
+  input_height: 320
+  confidence_threshold: 0.6
+  nms_iou_threshold: 0.35
+
+encoding:
+  engine_path: "models/arcface_r50_fp16.engine"
+  input_size: 112
+  embedding_dim: 512
+  batch_size: 64
+
+faiss:
+  index_type: "ivf_pq"
+  ivf_pq_min_size: 50000
+  nlist: 1024
+  nprobe: 16
+  pq_m: 64
+  metric: "l2"
+  gpu_id: 1
+
+recognition:
+  threshold: 0.5
+  margin_min: 0.08
+  top_k: 10
+
+logging:
+  level: "debug"
+  json: false

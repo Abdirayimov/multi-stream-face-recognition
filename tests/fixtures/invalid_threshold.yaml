@@ -1,0 +1,9 @@
+# Cosine similarity never exceeds 1.0, so this threshold rejects everything.
+detection:
+  engine_path: "models/scrfd.engine"
+
+encoding:
+  engine_path: "models/arcface.engine"
+
+recognition:
+  threshold: 1.5

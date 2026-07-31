@@ -1,0 +1,8 @@
+pipeline:
+  batch_size: -1
+
+detection:
+  engine_path: "models/scrfd.engine"
+
+encoding:
+  engine_path: "models/arcface.engine"

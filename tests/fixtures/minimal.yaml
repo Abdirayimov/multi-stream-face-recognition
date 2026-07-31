@@ -1,0 +1,7 @@
+# Only the two required engine paths; everything else must fall back to
+# the documented defaults.
+detection:
+  engine_path: "models/scrfd.engine"
+
+encoding:
+  engine_path: "models/arcface.engine"

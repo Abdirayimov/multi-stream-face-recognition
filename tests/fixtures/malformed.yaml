@@ -1,0 +1,3 @@
+detection:
+  engine_path: "models/scrfd.engine"
+   input_width: [640

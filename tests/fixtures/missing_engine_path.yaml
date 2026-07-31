@@ -1,0 +1,5 @@
+detection:
+  input_width: 640
+
+encoding:
+  engine_path: "models/arcface.engine"

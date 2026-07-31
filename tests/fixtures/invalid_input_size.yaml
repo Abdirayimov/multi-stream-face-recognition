@@ -1,0 +1,8 @@
+# 100 is not a multiple of the stride-32 downsampling path.
+detection:
+  engine_path: "models/scrfd.engine"
+  input_width: 100
+  input_height: 100
+
+encoding:
+  engine_path: "models/arcface.engine"
