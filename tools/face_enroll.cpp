@@ -12,13 +12,12 @@
 #include <spdlog/spdlog.h>
 
 #include <Eigen/Core>
-#include <opencv2/imgcodecs.hpp>
-
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <opencv2/imgcodecs.hpp>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -40,7 +39,8 @@ constexpr std::array<const char*, 4> kImageExt = {".jpg", ".jpeg", ".png", ".bmp
 bool is_image(const fs::path& p) {
     const auto ext = p.extension().string();
     for (const char* e : kImageExt) {
-        if (ext == e) return true;
+        if (ext == e)
+            return true;
     }
     return false;
 }
@@ -72,10 +72,14 @@ int main(int argc, char** argv) {
 
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
-        if ((a == "--config" || a == "-c") && i + 1 < argc) config_path = argv[++i];
-        else if ((a == "--input" || a == "-i") && i + 1 < argc) input_dir = argv[++i];
-        else if ((a == "--output" || a == "-o") && i + 1 < argc) output_path = argv[++i];
-        else if (a == "--id-map" && i + 1 < argc) id_map_path = argv[++i];
+        if ((a == "--config" || a == "-c") && i + 1 < argc)
+            config_path = argv[++i];
+        else if ((a == "--input" || a == "-i") && i + 1 < argc)
+            input_dir = argv[++i];
+        else if ((a == "--output" || a == "-o") && i + 1 < argc)
+            output_path = argv[++i];
+        else if (a == "--id-map" && i + 1 < argc)
+            id_map_path = argv[++i];
         else if (a == "--help" || a == "-h") {
             print_usage(argv[0]);
             return EXIT_SUCCESS;
@@ -103,11 +107,13 @@ int main(int argc, char** argv) {
         std::size_t enrolled = 0;
 
         for (const auto& entry : fs::recursive_directory_iterator(input_dir)) {
-            if (!entry.is_regular_file() || !is_image(entry.path())) continue;
+            if (!entry.is_regular_file() || !is_image(entry.path()))
+                continue;
             ++scanned;
 
             const std::string name = entry.path().parent_path().filename().string();
-            if (name.empty() || name == ".") continue;
+            if (name.empty() || name == ".")
+                continue;
 
             cv::Mat img = cv::imread(entry.path().string());
             if (img.empty()) {
@@ -116,12 +122,14 @@ int main(int argc, char** argv) {
             }
 
             const auto detections = detector.detect(img);
-            if (detections.empty()) continue;
+            if (detections.empty())
+                continue;
 
             // Pick the largest face (by bbox area) when multiple are present.
             const auto* best = &detections.front();
             for (const auto& d : detections) {
-                if (d.bbox.area() > best->bbox.area()) best = &d;
+                if (d.bbox.area() > best->bbox.area())
+                    best = &d;
             }
 
             const cv::Mat aligned = aligner.align(img, best->landmarks);

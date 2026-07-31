@@ -11,8 +11,8 @@ namespace face_pipeline::utils {
 /// Check a CUDA call and throw std::runtime_error on failure.
 inline void cuda_check(cudaError_t err, const char* file, int line) {
     if (err != cudaSuccess) {
-        throw std::runtime_error(std::string("CUDA error at ") + file + ":" +
-                                 std::to_string(line) + " - " + cudaGetErrorString(err));
+        throw std::runtime_error(std::string("CUDA error at ") + file + ":" + std::to_string(line) +
+                                 " - " + cudaGetErrorString(err));
     }
 }
 
@@ -29,9 +29,7 @@ public:
     CudaStream(const CudaStream&) = delete;
     CudaStream& operator=(const CudaStream&) = delete;
 
-    CudaStream(CudaStream&& other) noexcept : stream_(other.stream_) {
-        other.stream_ = nullptr;
-    }
+    CudaStream(CudaStream&& other) noexcept : stream_(other.stream_) { other.stream_ = nullptr; }
     CudaStream& operator=(CudaStream&& other) noexcept {
         if (this != &other) {
             if (stream_ != nullptr) {
@@ -55,8 +53,8 @@ template <typename T>
 class PinnedBuffer {
 public:
     explicit PinnedBuffer(std::size_t count) : count_(count) {
-        cuda_check(cudaMallocHost(reinterpret_cast<void**>(&data_), count * sizeof(T)),
-                   __FILE__, __LINE__);
+        cuda_check(cudaMallocHost(reinterpret_cast<void**>(&data_), count * sizeof(T)), __FILE__,
+                   __LINE__);
     }
     ~PinnedBuffer() {
         if (data_ != nullptr) {

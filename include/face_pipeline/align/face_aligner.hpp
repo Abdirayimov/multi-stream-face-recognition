@@ -1,8 +1,7 @@
 #pragma once
 
-#include <opencv2/core.hpp>
-
 #include <array>
+#include <opencv2/core.hpp>
 
 namespace face_pipeline::align {
 
@@ -17,8 +16,7 @@ public:
     explicit FaceAligner(int output_size = 112);
 
     /// Align a face. `landmarks` are in the source-image coordinate frame.
-    cv::Mat align(const cv::Mat& image,
-                  const std::array<cv::Point2f, 5>& landmarks) const;
+    cv::Mat align(const cv::Mat& image, const std::array<cv::Point2f, 5>& landmarks) const;
 
     int output_size() const noexcept { return output_size_; }
 

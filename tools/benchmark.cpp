@@ -4,7 +4,6 @@
 #include <spdlog/spdlog.h>
 
 #include <Eigen/Core>
-
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
@@ -24,12 +23,14 @@ namespace {
 using Clock = std::chrono::steady_clock;
 
 double percentile(std::vector<double> v, double p) {
-    if (v.empty()) return 0.0;
+    if (v.empty())
+        return 0.0;
     std::sort(v.begin(), v.end());
     const double pos = p * static_cast<double>(v.size() - 1);
     const auto lo = static_cast<std::size_t>(pos);
     const double frac = pos - static_cast<double>(lo);
-    if (lo + 1 >= v.size()) return v[lo];
+    if (lo + 1 >= v.size())
+        return v[lo];
     return v[lo] * (1.0 - frac) + v[lo + 1] * frac;
 }
 
@@ -52,11 +53,13 @@ void bench_faiss(const face_pipeline::config::SystemConfig& cfg, std::size_t n_i
     searcher.build(M, ids);
 
     Eigen::MatrixXf Q(dim, static_cast<Eigen::Index>(n_queries));
-    for (Eigen::Index i = 0; i < Q.size(); ++i) Q.data()[i] = nd(rng);
+    for (Eigen::Index i = 0; i < Q.size(); ++i)
+        Q.data()[i] = nd(rng);
     Q.colwise().normalize();
 
     // Warm-up
-    for (std::size_t i = 0; i < 5; ++i) (void)searcher.search_batch(Q, 5);
+    for (std::size_t i = 0; i < 5; ++i)
+        (void)searcher.search_batch(Q, 5);
 
     std::vector<double> latencies_ms;
     latencies_ms.reserve(iters);
@@ -69,8 +72,8 @@ void bench_faiss(const face_pipeline::config::SystemConfig& cfg, std::size_t n_i
 
     std::cout << "FAISS search (n_index=" << n_index << ", n_queries=" << n_queries
               << ", top_k=5):\n"
-              << "  p50: " << std::fixed << std::setprecision(3)
-              << percentile(latencies_ms, 0.5) << " ms\n"
+              << "  p50: " << std::fixed << std::setprecision(3) << percentile(latencies_ms, 0.5)
+              << " ms\n"
               << "  p95: " << percentile(latencies_ms, 0.95) << " ms\n"
               << "  p99: " << percentile(latencies_ms, 0.99) << " ms\n"
               << "  qps: " << std::setprecision(1)
@@ -87,7 +90,8 @@ int main(int argc, char** argv) {
     std::string config_path;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
-        if ((a == "--config" || a == "-c") && i + 1 < argc) config_path = argv[++i];
+        if ((a == "--config" || a == "-c") && i + 1 < argc)
+            config_path = argv[++i];
         else if (a == "--help" || a == "-h") {
             print_usage(argv[0]);
             return EXIT_SUCCESS;

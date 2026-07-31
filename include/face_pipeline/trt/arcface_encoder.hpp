@@ -1,9 +1,8 @@
 #pragma once
 
 #include <Eigen/Core>
-#include <opencv2/core.hpp>
-
 #include <memory>
+#include <opencv2/core.hpp>
 #include <vector>
 
 #include "face_pipeline/config/system_config.hpp"

@@ -20,7 +20,9 @@ namespace {
 
 std::atomic<bool> g_shutdown{false};
 
-void signal_handler(int) { g_shutdown = true; }
+void signal_handler(int) {
+    g_shutdown = true;
+}
 
 void print_usage(const char* argv0) {
     std::cerr << "Usage: " << argv0 << " --config CONFIG_YAML [--pgie PGIE_TXT]\n"

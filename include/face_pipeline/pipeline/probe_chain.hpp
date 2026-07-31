@@ -28,16 +28,12 @@ using ResultCallback = std::function<void(const FrameResult&)>;
 /// DeepStream symbols itself, which keeps unit testing simple.
 class ProbeChain {
 public:
-    ProbeChain(align::FaceAligner& aligner,
-               trt::ArcFaceEncoder& encoder,
-               indexing::FaissSearcher& searcher,
-               const config::RecognitionConfig& recognition_cfg);
+    ProbeChain(align::FaceAligner& aligner, trt::ArcFaceEncoder& encoder,
+               indexing::FaissSearcher& searcher, const config::RecognitionConfig& recognition_cfg);
 
     /// Process one frame's detection output. The returned FrameResult is
     /// also forwarded to any callback registered via `set_result_callback`.
-    FrameResult process(FrameMeta meta,
-                        const cv::Mat& image,
-                        std::vector<FaceResult> detections);
+    FrameResult process(FrameMeta meta, const cv::Mat& image, std::vector<FaceResult> detections);
 
     void set_result_callback(ResultCallback cb) { callback_ = std::move(cb); }
 

@@ -2,7 +2,6 @@
 
 #include <gst/app/gstappsink.h>
 #include <gst/gst.h>
-
 #include <spdlog/spdlog.h>
 
 #include <atomic>
@@ -33,8 +32,7 @@ struct DeepStreamPipeline::Impl {
 };
 
 DeepStreamPipeline::DeepStreamPipeline(const config::PipelineConfig& cfg,
-                                       const std::string& pgie_config_path,
-                                       ProbeChain& probe_chain)
+                                       const std::string& pgie_config_path, ProbeChain& probe_chain)
     : impl_(std::make_unique<Impl>()), cfg_(cfg), probe_chain_(probe_chain) {
     if (cfg_.max_streams > kMaxSourcesHardLimit) {
         throw std::invalid_argument("max_streams exceeds hard limit (32)");
@@ -53,23 +51,16 @@ DeepStreamPipeline::DeepStreamPipeline(const config::PipelineConfig& cfg,
         throw std::runtime_error("failed to create one or more GStreamer elements");
     }
 
-    g_object_set(G_OBJECT(impl_->streammux),
-                 "batch-size", cfg_.batch_size,
-                 "width", cfg_.muxer_width,
-                 "height", cfg_.muxer_height,
-                 "batched-push-timeout", cfg_.batched_push_timeout_us,
-                 "live-source", TRUE,
-                 nullptr);
+    g_object_set(G_OBJECT(impl_->streammux), "batch-size", cfg_.batch_size, "width",
+                 cfg_.muxer_width, "height", cfg_.muxer_height, "batched-push-timeout",
+                 cfg_.batched_push_timeout_us, "live-source", TRUE, nullptr);
 
-    g_object_set(G_OBJECT(impl_->pgie),
-                 "config-file-path", pgie_config_path.c_str(),
-                 "batch-size", cfg_.batch_size,
-                 nullptr);
+    g_object_set(G_OBJECT(impl_->pgie), "config-file-path", pgie_config_path.c_str(), "batch-size",
+                 cfg_.batch_size, nullptr);
 
     g_object_set(G_OBJECT(impl_->sink), "sync", FALSE, "async", FALSE, "qos", FALSE, nullptr);
 
-    gst_bin_add_many(GST_BIN(impl_->pipeline), impl_->streammux, impl_->pgie, impl_->sink,
-                     nullptr);
+    gst_bin_add_many(GST_BIN(impl_->pipeline), impl_->streammux, impl_->pgie, impl_->sink, nullptr);
 
     if (!gst_element_link_many(impl_->streammux, impl_->pgie, impl_->sink, nullptr)) {
         throw std::runtime_error("failed to link streammux -> pgie -> sink");
@@ -142,7 +133,8 @@ bool DeepStreamPipeline::add_source(const std::string& source_id, const std::str
 bool DeepStreamPipeline::remove_source(const std::string& source_id) {
     std::lock_guard<std::mutex> lock(sources_mutex_);
     auto it = sources_.find(source_id);
-    if (it == sources_.end()) return false;
+    if (it == sources_.end())
+        return false;
 
     const std::string bin_name = "src-bin-" + std::to_string(it->second);
     GstElement* src_bin = gst_bin_get_by_name(GST_BIN(impl_->pipeline), bin_name.c_str());
@@ -157,7 +149,8 @@ bool DeepStreamPipeline::remove_source(const std::string& source_id) {
 }
 
 void DeepStreamPipeline::start() {
-    if (running_.exchange(true)) return;
+    if (running_.exchange(true))
+        return;
 
     impl_->loop = g_main_loop_new(nullptr, FALSE);
     impl_->loop_thread = std::thread([this]() {
@@ -175,7 +168,8 @@ void DeepStreamPipeline::wait() {
 }
 
 void DeepStreamPipeline::stop() {
-    if (!running_.exchange(false)) return;
+    if (!running_.exchange(false))
+        return;
     if (impl_->loop) {
         g_main_loop_quit(impl_->loop);
         g_main_loop_unref(impl_->loop);

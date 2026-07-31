@@ -1,10 +1,9 @@
 #include "face_pipeline/trt/arcface_encoder.hpp"
 
-#include <opencv2/imgproc.hpp>
-
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <opencv2/imgproc.hpp>
 #include <stdexcept>
 
 #include "face_pipeline/trt/trt_engine.hpp"
@@ -77,9 +76,9 @@ std::vector<Embedding> ArcFaceEncoder::encode_batch(const std::vector<cv::Mat>& 
     return results;
 }
 
-void ArcFaceEncoder::encode_chunk_(const std::vector<cv::Mat>& chunk,
-                                   std::vector<Embedding>& out) {
-    if (chunk.empty()) return;
+void ArcFaceEncoder::encode_chunk_(const std::vector<cv::Mat>& chunk, std::vector<Embedding>& out) {
+    if (chunk.empty())
+        return;
 
     const std::int64_t bsz = static_cast<std::int64_t>(chunk.size());
     const std::int64_t side = static_cast<std::int64_t>(cfg_.input_size);
@@ -101,13 +100,12 @@ void ArcFaceEncoder::encode_chunk_(const std::vector<cv::Mat>& chunk,
 
     const std::size_t per_face = static_cast<std::size_t>(3 * side * side);
     for (std::size_t i = 0; i < chunk.size(); ++i) {
-        preprocess_face(chunk[i], static_cast<int>(side),
-                        input_scratch_.data() + i * per_face);
+        preprocess_face(chunk[i], static_cast<int>(side), input_scratch_.data() + i * per_face);
     }
 
     utils::CudaStream stream;
-    engine_->copy_input(input_name, input_scratch_.data(),
-                        chunk.size() * per_face * sizeof(float), stream.get());
+    engine_->copy_input(input_name, input_scratch_.data(), chunk.size() * per_face * sizeof(float),
+                        stream.get());
     engine_->infer(stream.get());
     engine_->copy_output(output_name, output_scratch_.data(),
                          chunk.size() * static_cast<std::size_t>(emb) * sizeof(float),

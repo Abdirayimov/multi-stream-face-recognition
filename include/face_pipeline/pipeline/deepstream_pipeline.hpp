@@ -26,8 +26,7 @@ class ProbeChain;
 /// the underlying GLib main loop runs on its own thread.
 class DeepStreamPipeline {
 public:
-    DeepStreamPipeline(const config::PipelineConfig& cfg,
-                       const std::string& pgie_config_path,
+    DeepStreamPipeline(const config::PipelineConfig& cfg, const std::string& pgie_config_path,
                        ProbeChain& probe_chain);
     ~DeepStreamPipeline();
 

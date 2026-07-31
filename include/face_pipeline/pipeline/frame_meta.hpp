@@ -1,11 +1,10 @@
 #pragma once
 
 #include <Eigen/Core>
-#include <opencv2/core.hpp>
-
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <opencv2/core.hpp>
 #include <optional>
 #include <string>
 #include <vector>

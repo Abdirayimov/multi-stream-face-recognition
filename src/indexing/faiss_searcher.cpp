@@ -1,14 +1,13 @@
 #include "face_pipeline/indexing/faiss_searcher.hpp"
 
 #include <faiss/IndexFlat.h>
+#include <faiss/IndexIDMap.h>
 #include <faiss/IndexIVFFlat.h>
 #include <faiss/IndexIVFPQ.h>
-#include <faiss/IndexIDMap.h>
 #include <faiss/MetricType.h>
 #include <faiss/gpu/GpuCloner.h>
 #include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/index_io.h>
-
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
@@ -26,7 +25,8 @@ faiss::MetricType to_faiss(config::FaissMetric m) {
 }
 
 std::uint32_t default_nlist(std::size_t n) {
-    if (n == 0) return 1;
+    if (n == 0)
+        return 1;
     const auto root = static_cast<std::size_t>(4.0 * std::sqrt(static_cast<double>(n)));
     return static_cast<std::uint32_t>(std::max<std::size_t>(1, std::min(root, n / 39)));
 }
@@ -49,8 +49,7 @@ FaissSearcher::FaissSearcher(const config::FaissConfig& cfg)
 
 FaissSearcher::~FaissSearcher() = default;
 
-void FaissSearcher::build(const Eigen::MatrixXf& embeddings,
-                          const std::vector<std::int64_t>& ids) {
+void FaissSearcher::build(const Eigen::MatrixXf& embeddings, const std::vector<std::int64_t>& ids) {
     const auto dim = static_cast<std::uint32_t>(embeddings.rows());
     const auto n = static_cast<std::size_t>(embeddings.cols());
     if (n != ids.size()) {
@@ -66,15 +65,15 @@ void FaissSearcher::build(const Eigen::MatrixXf& embeddings,
 
     const std::uint32_t nlist = (cfg_.nlist > 0) ? cfg_.nlist : default_nlist(n);
 
-    auto quantizer = std::make_unique<faiss::IndexFlat>(static_cast<int>(dim), to_faiss(cfg_.metric));
+    auto quantizer =
+        std::make_unique<faiss::IndexFlat>(static_cast<int>(dim), to_faiss(cfg_.metric));
     std::unique_ptr<faiss::Index> ivf;
     if (chosen == config::FaissIndexType::IVFFlat) {
         ivf = std::make_unique<faiss::IndexIVFFlat>(quantizer.release(), dim, nlist,
                                                     to_faiss(cfg_.metric));
     } else {
-        ivf = std::make_unique<faiss::IndexIVFPQ>(quantizer.release(), dim, nlist,
-                                                  static_cast<int>(cfg_.pq_m), 8,
-                                                  to_faiss(cfg_.metric));
+        ivf = std::make_unique<faiss::IndexIVFPQ>(
+            quantizer.release(), dim, nlist, static_cast<int>(cfg_.pq_m), 8, to_faiss(cfg_.metric));
     }
 
     auto wrapped = std::make_unique<faiss::IndexIDMap>(ivf.release());
@@ -84,26 +83,24 @@ void FaissSearcher::build(const Eigen::MatrixXf& embeddings,
     impl_->index_cpu = std::move(wrapped);
 
     if (cfg_.gpu_id >= 0) {
-        impl_->index_gpu.reset(faiss::gpu::index_cpu_to_gpu(impl_->gpu_resources.get(),
-                                                            cfg_.gpu_id, impl_->index_cpu.get()));
+        impl_->index_gpu.reset(faiss::gpu::index_cpu_to_gpu(impl_->gpu_resources.get(), cfg_.gpu_id,
+                                                            impl_->index_cpu.get()));
         impl_->on_gpu = true;
     }
 
     SPDLOG_INFO("FaissSearcher: built {} index, n={}, dim={}, nlist={}",
-                (chosen == config::FaissIndexType::IVFFlat ? "IVF-Flat" : "IVF-PQ"),
-                n, dim, nlist);
+                (chosen == config::FaissIndexType::IVFFlat ? "IVF-Flat" : "IVF-PQ"), n, dim, nlist);
 }
 
-void FaissSearcher::add(const Eigen::MatrixXf& embeddings,
-                        const std::vector<std::int64_t>& ids) {
+void FaissSearcher::add(const Eigen::MatrixXf& embeddings, const std::vector<std::int64_t>& ids) {
     if (!impl_->index_cpu) {
         throw std::runtime_error("FaissSearcher::add called before build");
     }
     const auto n = static_cast<std::size_t>(embeddings.cols());
     impl_->index_cpu->add_with_ids(static_cast<faiss::idx_t>(n), embeddings.data(), ids.data());
     if (impl_->on_gpu) {
-        impl_->index_gpu.reset(faiss::gpu::index_cpu_to_gpu(impl_->gpu_resources.get(),
-                                                            cfg_.gpu_id, impl_->index_cpu.get()));
+        impl_->index_gpu.reset(faiss::gpu::index_cpu_to_gpu(impl_->gpu_resources.get(), cfg_.gpu_id,
+                                                            impl_->index_cpu.get()));
     }
 }
 
@@ -114,21 +111,20 @@ void FaissSearcher::remove(const std::vector<std::int64_t>& ids) {
     faiss::IDSelectorBatch sel(ids.size(), ids.data());
     impl_->index_cpu->remove_ids(sel);
     if (impl_->on_gpu) {
-        impl_->index_gpu.reset(faiss::gpu::index_cpu_to_gpu(impl_->gpu_resources.get(),
-                                                            cfg_.gpu_id, impl_->index_cpu.get()));
+        impl_->index_gpu.reset(faiss::gpu::index_cpu_to_gpu(impl_->gpu_resources.get(), cfg_.gpu_id,
+                                                            impl_->index_cpu.get()));
     }
 }
 
-std::vector<SearchResult> FaissSearcher::search(const Embedding& query,
-                                                std::uint32_t top_k) const {
+std::vector<SearchResult> FaissSearcher::search(const Embedding& query, std::uint32_t top_k) const {
     Eigen::MatrixXf m(query.size(), 1);
     m.col(0) = query;
     auto batched = search_batch(m, top_k);
     return batched.empty() ? std::vector<SearchResult>{} : std::move(batched.front());
 }
 
-std::vector<std::vector<SearchResult>> FaissSearcher::search_batch(
-    const Eigen::MatrixXf& queries, std::uint32_t top_k) const {
+std::vector<std::vector<SearchResult>> FaissSearcher::search_batch(const Eigen::MatrixXf& queries,
+                                                                   std::uint32_t top_k) const {
     if (!impl_->index_cpu) {
         throw std::runtime_error("FaissSearcher::search called before build");
     }
@@ -146,7 +142,8 @@ std::vector<std::vector<SearchResult>> FaissSearcher::search_batch(
         out[q].reserve(top_k);
         for (std::uint32_t r = 0; r < top_k; ++r) {
             const std::size_t pos = q * top_k + r;
-            if (labels[pos] < 0) continue;
+            if (labels[pos] < 0)
+                continue;
             out[q].push_back({labels[pos], distances[pos]});
         }
     }
@@ -164,8 +161,8 @@ void FaissSearcher::load(const std::string& path) {
     impl_->index_cpu.reset(faiss::read_index(path.c_str()));
     dimension_ = static_cast<std::uint32_t>(impl_->index_cpu->d);
     if (cfg_.gpu_id >= 0) {
-        impl_->index_gpu.reset(faiss::gpu::index_cpu_to_gpu(impl_->gpu_resources.get(),
-                                                            cfg_.gpu_id, impl_->index_cpu.get()));
+        impl_->index_gpu.reset(faiss::gpu::index_cpu_to_gpu(impl_->gpu_resources.get(), cfg_.gpu_id,
+                                                            impl_->index_cpu.get()));
         impl_->on_gpu = true;
     }
 }

@@ -2,7 +2,6 @@
 
 #include <NvInfer.h>
 #include <cuda_runtime.h>
-
 #include <spdlog/spdlog.h>
 
 #include <cstdint>
@@ -46,21 +45,30 @@ TrtLogger& global_trt_logger() {
 
 std::size_t element_size_for(nvinfer1::DataType dt) {
     switch (dt) {
-        case nvinfer1::DataType::kFLOAT: return 4;
-        case nvinfer1::DataType::kHALF:  return 2;
-        case nvinfer1::DataType::kINT8:  return 1;
-        case nvinfer1::DataType::kINT32: return 4;
-        case nvinfer1::DataType::kBOOL:  return 1;
-        case nvinfer1::DataType::kUINT8: return 1;
-        case nvinfer1::DataType::kFP8:   return 1;
-        default: return 0;
+        case nvinfer1::DataType::kFLOAT:
+            return 4;
+        case nvinfer1::DataType::kHALF:
+            return 2;
+        case nvinfer1::DataType::kINT8:
+            return 1;
+        case nvinfer1::DataType::kINT32:
+            return 4;
+        case nvinfer1::DataType::kBOOL:
+            return 1;
+        case nvinfer1::DataType::kUINT8:
+            return 1;
+        case nvinfer1::DataType::kFP8:
+            return 1;
+        default:
+            return 0;
     }
 }
 
 std::size_t volume_of(const std::vector<std::int64_t>& shape) {
     std::size_t v = 1;
     for (auto d : shape) {
-        if (d <= 0) return 0;
+        if (d <= 0)
+            return 0;
         v *= static_cast<std::size_t>(d);
     }
     return v;
@@ -144,8 +152,7 @@ TrtEngine::~TrtEngine() {
 TrtEngine::TrtEngine(TrtEngine&&) noexcept = default;
 TrtEngine& TrtEngine::operator=(TrtEngine&&) noexcept = default;
 
-void TrtEngine::set_input_shape(const std::string& name,
-                                const std::vector<std::int64_t>& shape) {
+void TrtEngine::set_input_shape(const std::string& name, const std::vector<std::int64_t>& shape) {
     nvinfer1::Dims dims;
     dims.nbDims = static_cast<std::int32_t>(shape.size());
     for (std::size_t i = 0; i < shape.size(); ++i) {
@@ -197,7 +204,8 @@ const void* TrtEngine::device_ptr(const std::string& name) const {
 
 const BindingInfo& TrtEngine::binding(const std::string& name) const {
     for (const auto& b : bindings_) {
-        if (b.name == name) return b;
+        if (b.name == name)
+            return b;
     }
     throw std::out_of_range("no such binding: " + name);
 }
