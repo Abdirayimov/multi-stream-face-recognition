@@ -2,19 +2,18 @@
 
 #include <spdlog/spdlog.h>
 
+#include <exception>
 #include <optional>
 #include <utility>
 #include <vector>
 
 #include "face_pipeline/align/face_aligner.hpp"
-#include "face_pipeline/indexing/faiss_searcher.hpp"
 #include "face_pipeline/pipeline/match_decision.hpp"
-#include "face_pipeline/trt/arcface_encoder.hpp"
 
 namespace face_pipeline::pipeline {
 
-ProbeChain::ProbeChain(align::FaceAligner& aligner, trt::ArcFaceEncoder& encoder,
-                       indexing::FaissSearcher& searcher,
+ProbeChain::ProbeChain(align::FaceAligner& aligner, trt::IEncoder& encoder,
+                       indexing::ISearcher& searcher,
                        const config::RecognitionConfig& recognition_cfg)
     : aligner_(aligner),
       encoder_(encoder),
@@ -41,7 +40,33 @@ FrameResult ProbeChain::process(FrameMeta meta, const cv::Mat& image,
     }
 
     // 2. Encode in a single batched call.
-    const auto embeddings = encoder_.encode_batch(crops);
+    //
+    // A failing engine must cost one frame, not the stream: a live pipeline
+    // that terminates because a single inference threw is worse than one
+    // that drops a frame and keeps going. The frame is still reported, with
+    // no embeddings and therefore no identities.
+    std::vector<trt::Embedding> embeddings;
+    try {
+        embeddings = encoder_.encode_batch(crops);
+    } catch (const std::exception& e) {
+        SPDLOG_WARN("ProbeChain: encoder failed on frame {} of source '{}', skipping: {}",
+                    result.meta.frame_number, result.meta.source_id, e.what());
+        if (callback_)
+            callback_(result);
+        return result;
+    }
+
+    // An encoder returning a different count than it was given would leave
+    // faces silently paired with another face's embedding, so treat the
+    // mismatch as a failed frame rather than indexing past the end.
+    if (embeddings.size() != result.faces.size()) {
+        SPDLOG_WARN("ProbeChain: encoder returned {} embeddings for {} faces, skipping frame {}",
+                    embeddings.size(), result.faces.size(), result.meta.frame_number);
+        if (callback_)
+            callback_(result);
+        return result;
+    }
+
     for (std::size_t i = 0; i < result.faces.size(); ++i) {
         result.faces[i].embedding = embeddings[i];
     }
@@ -49,7 +74,7 @@ FrameResult ProbeChain::process(FrameMeta meta, const cv::Mat& image,
     // 3. Look up each embedding. Batched search would be more efficient at
     //    high concurrency; we keep it simple here for clarity.
     if (searcher_.size() == 0) {
-        SPDLOG_DEBUG("ProbeChain: empty index, skipping FAISS search");
+        SPDLOG_DEBUG("ProbeChain: empty index, skipping search");
         if (callback_)
             callback_(result);
         return result;
