@@ -117,10 +117,10 @@ RTSP / file ──► │ uridecode│ ──►│nvstream  │ ──►│   
 
 ## Performance
 
-Indicative numbers on synthetic 720p streams, RTX 3090, batch_size=8.
-Real numbers depend heavily on input resolution, face count per frame,
-and chosen index parameters; treat these as a sanity floor, not a
-benchmark.
+Indicative numbers on synthetic 720p streams, RTX 3060 (12 GB),
+batch_size=8. Real numbers depend heavily on input resolution, face
+count per frame, and chosen index parameters; treat these as a sanity
+floor, not a benchmark.
 
 | Stage                          | p50 latency | Throughput        |
 |--------------------------------|------------:|-------------------|

@@ -7,14 +7,15 @@ reproduce them and what the moving parts are.
 
 The reference numbers were measured on:
 
-- GPU: NVIDIA RTX 3090 (24 GB)
+- GPU: NVIDIA RTX 3060 (12 GB)
 - CUDA: 12.x
 - TensorRT: 8.6+
 - DeepStream: 8.0
 - Driver: 545+
 
-Older hardware (e.g., RTX 2080 Ti) is roughly 1.5-2x slower; Jetson Orin
-modules are 3-5x slower depending on the SKU.
+Scaling to other hardware is not published here because it was not
+measured. Re-run `face_benchmark` on the card you care about rather than
+applying a multiplier to these figures.
 
 ## What `face_benchmark` measures
 
