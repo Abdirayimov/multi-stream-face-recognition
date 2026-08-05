@@ -244,10 +244,11 @@ TEST(Nms, AThresholdOfOneSuppressesNothingButExactDuplicates) {
 TEST(DecodeStride, EmitsOnlyAnchorsAboveTheScoreThreshold) {
     constexpr int kStride = 8;
     constexpr int kSmallInput = 16;
-    const int kAnchors = anchor_count(kSmallInput, kSmallInput, kStride);  // 2*2*2 = 8
+    const int kAnchors = anchor_count(kSmallInput, kSmallInput, kStride);
+    ASSERT_EQ(kAnchors, 8) << "16/8 = 2, so a 2x2 map with 2 anchors per cell";
 
     std::vector<float> scores(static_cast<std::size_t>(kAnchors), 0.10f);
-    scores[5] = 0.90f;  // feature cell (1, 0), anchor 1
+    scores.at(5) = 0.90f;  // feature cell (1, 0), anchor 1
     std::vector<float> bboxes(static_cast<std::size_t>(kAnchors) * 4, 1.0f);
     std::vector<float> kps(static_cast<std::size_t>(kAnchors) * 10, 0.0f);
 

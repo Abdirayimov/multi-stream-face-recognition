@@ -25,6 +25,7 @@ set(FACE_PIPELINE_TEST_SOURCES
     test_scrfd_decode.cpp
     test_config.cpp
     test_match_decision.cpp
+    test_probe_chain.cpp
 )
 
 add_executable(face_pipeline_tests ${FACE_PIPELINE_TEST_SOURCES})

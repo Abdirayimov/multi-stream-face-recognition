@@ -37,16 +37,16 @@ if(FACE_PIPELINE_CPU_ONLY)
 endif()
 
 # ---- Dependencies ----
-# The algorithmic core needs only these three; everything else is a GPU
+# The algorithmic core needs only these four; everything else is a GPU
 # stage and is looked up separately below.
 find_package(OpenCV 4.5 REQUIRED COMPONENTS core imgproc)
 find_package(Eigen3 3.4 REQUIRED NO_MODULE)
+find_package(spdlog REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 if(NOT FACE_PIPELINE_CPU_ONLY)
     find_package(CUDAToolkit 12.0 REQUIRED)
     find_package(OpenCV 4.5 REQUIRED COMPONENTS core imgproc imgcodecs videoio)
-    find_package(spdlog REQUIRED)
     find_package(TensorRT REQUIRED)
 endif()
 
@@ -79,9 +79,11 @@ endif()
 # runners without an NVIDIA stack — build them without CUDA or TensorRT.
 add_library(face_pipeline_core STATIC
     src/config/system_config.cpp
+    src/utils/logger.cpp
     src/align/similarity_transform.cpp
     src/align/face_aligner.cpp
     src/trt/scrfd_postprocess.cpp
+    src/pipeline/probe_chain.cpp
 )
 target_include_directories(face_pipeline_core
     PUBLIC
@@ -93,6 +95,7 @@ target_link_libraries(face_pipeline_core
         opencv_core
         opencv_imgproc
         Eigen3::Eigen
+        spdlog::spdlog
         yaml-cpp::yaml-cpp
 )
 set_target_properties(face_pipeline_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -106,11 +109,12 @@ if(NOT FACE_PIPELINE_CPU_ONLY)
         "${CMAKE_SOURCE_DIR}/src/pipeline/*.cpp"
     )
     # Already compiled into face_pipeline_core.
-    list(FILTER FACE_PIPELINE_SOURCES EXCLUDE REGEX "scrfd_postprocess\\.cpp$")
+    foreach(core_src scrfd_postprocess logger probe_chain)
+        list(FILTER FACE_PIPELINE_SOURCES EXCLUDE REGEX "${core_src}\\.cpp$")
+    endforeach()
 
     if(NOT BUILD_FAISS)
         list(FILTER FACE_PIPELINE_SOURCES EXCLUDE REGEX "faiss_searcher\\.cpp$")
-        list(FILTER FACE_PIPELINE_SOURCES EXCLUDE REGEX "probe_chain\\.cpp$")
     endif()
     if(NOT BUILD_DEEPSTREAM)
         list(FILTER FACE_PIPELINE_SOURCES EXCLUDE REGEX "deepstream_pipeline\\.cpp$")
