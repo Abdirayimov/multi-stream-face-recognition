@@ -7,16 +7,9 @@
 #include <vector>
 
 #include "face_pipeline/config/system_config.hpp"
+#include "face_pipeline/indexing/searcher_iface.hpp"
 
 namespace face_pipeline::indexing {
-
-using Embedding = Eigen::Matrix<float, Eigen::Dynamic, 1>;
-
-/// Single (id, similarity) result from a FAISS query.
-struct SearchResult {
-    std::int64_t id = -1;
-    float similarity = 0.0f;
-};
 
 /// FAISS GPU vector index for face embeddings.
 ///
@@ -30,10 +23,10 @@ struct SearchResult {
 ///
 /// Save / load round-trips through CPU (FAISS GPU indexes are not
 /// directly serializable). Reload restores the GPU resident copy.
-class FaissSearcher {
+class FaissSearcher final : public ISearcher {
 public:
     explicit FaissSearcher(const config::FaissConfig& cfg);
-    ~FaissSearcher();
+    ~FaissSearcher() override;
 
     FaissSearcher(const FaissSearcher&) = delete;
     FaissSearcher& operator=(const FaissSearcher&) = delete;
@@ -52,7 +45,7 @@ public:
     void remove(const std::vector<std::int64_t>& ids);
 
     /// Top-k search for one query embedding.
-    std::vector<SearchResult> search(const Embedding& query, std::uint32_t top_k) const;
+    std::vector<SearchResult> search(const Embedding& query, std::uint32_t top_k) const override;
 
     /// Batched top-k search; outer vector indexed by query.
     std::vector<std::vector<SearchResult>> search_batch(const Eigen::MatrixXf& queries,
@@ -64,7 +57,7 @@ public:
     /// Load and re-upload to GPU (if `gpu_id >= 0`).
     void load(const std::string& path);
 
-    std::size_t size() const noexcept;
+    std::size_t size() const noexcept override;
     std::uint32_t dimension() const noexcept { return dimension_; }
 
 private:

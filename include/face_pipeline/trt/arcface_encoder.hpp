@@ -6,12 +6,11 @@
 #include <vector>
 
 #include "face_pipeline/config/system_config.hpp"
+#include "face_pipeline/trt/encoder_iface.hpp"
 
 namespace face_pipeline::trt {
 
 class TrtEngine;
-
-using Embedding = Eigen::Matrix<float, Eigen::Dynamic, 1>;
 
 /// ArcFace embedding extractor.
 ///
@@ -23,10 +22,10 @@ using Embedding = Eigen::Matrix<float, Eigen::Dynamic, 1>;
 /// Reference:
 ///   Deng et al., "ArcFace: Additive Angular Margin Loss for Deep Face
 ///   Recognition", CVPR 2019.
-class ArcFaceEncoder {
+class ArcFaceEncoder final : public IEncoder {
 public:
     explicit ArcFaceEncoder(const config::EncodingConfig& cfg);
-    ~ArcFaceEncoder();
+    ~ArcFaceEncoder() override;
 
     ArcFaceEncoder(const ArcFaceEncoder&) = delete;
     ArcFaceEncoder& operator=(const ArcFaceEncoder&) = delete;
@@ -36,7 +35,7 @@ public:
 
     /// Encode `faces.size()` aligned face crops in a single TRT call.
     /// Faces beyond `cfg.batch_size` are processed in additional batches.
-    std::vector<Embedding> encode_batch(const std::vector<cv::Mat>& aligned_faces);
+    std::vector<Embedding> encode_batch(const std::vector<cv::Mat>& aligned_faces) override;
 
     const config::EncodingConfig& config() const noexcept { return cfg_; }
 
