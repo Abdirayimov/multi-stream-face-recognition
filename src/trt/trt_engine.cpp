@@ -8,6 +8,7 @@
 #include <fstream>
 #include <numeric>
 #include <stdexcept>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -80,7 +81,11 @@ struct TrtEngine::Impl {
     std::unique_ptr<nvinfer1::IRuntime> runtime;
     std::unique_ptr<nvinfer1::ICudaEngine> engine;
     std::unique_ptr<nvinfer1::IExecutionContext> context;
-    std::unordered_map<std::string, void*> device_buffers;
+    /// One owning allocation per binding. DeviceBuffer rather than a raw
+    /// void*: the constructor allocates inside a loop, and if it throws
+    /// part-way its destructor never runs, so raw pointers here leaked
+    /// every buffer allocated before the failure.
+    std::unordered_map<std::string, utils::DeviceBuffer> device_buffers;
     std::vector<std::string> binding_order;
 };
 
@@ -128,10 +133,9 @@ TrtEngine::TrtEngine(const std::string& engine_path) : impl_(std::make_unique<Im
         // Allocate GPU memory for known-shape bindings; dynamic-shape ones are
         // allocated on first set_input_shape call.
         if (info.volume > 0 && info.element_size > 0) {
-            void* ptr = nullptr;
-            FP_CUDA_CHECK(cudaMalloc(&ptr, info.volume * info.element_size));
-            impl_->device_buffers[info.name] = ptr;
-            impl_->context->setTensorAddress(name, ptr);
+            auto& buffer = impl_->device_buffers[info.name];
+            buffer.reset(info.volume * info.element_size);
+            impl_->context->setTensorAddress(name, buffer.get());
         }
 
         bindings_.push_back(std::move(info));
@@ -139,21 +143,22 @@ TrtEngine::TrtEngine(const std::string& engine_path) : impl_(std::make_unique<Im
     }
 }
 
-TrtEngine::~TrtEngine() {
-    if (impl_) {
-        for (auto& [_, ptr] : impl_->device_buffers) {
-            if (ptr != nullptr) {
-                cudaFree(ptr);
-            }
-        }
-    }
-}
+// Defined here, where Impl is complete, so unique_ptr<Impl> can destroy
+// it. The body is empty because every device buffer now frees itself.
+TrtEngine::~TrtEngine() = default;
 
 TrtEngine::TrtEngine(TrtEngine&&) noexcept = default;
 TrtEngine& TrtEngine::operator=(TrtEngine&&) noexcept = default;
 
 void TrtEngine::set_input_shape(const std::string& name, const std::vector<std::int64_t>& shape) {
-    nvinfer1::Dims dims;
+    // nvinfer1::Dims::d is a fixed MAX_DIMS array; a longer shape would
+    // write past the end of a stack object.
+    if (shape.size() > static_cast<std::size_t>(nvinfer1::Dims::MAX_DIMS)) {
+        throw std::invalid_argument("shape rank " + std::to_string(shape.size()) +
+                                    " exceeds TensorRT's maximum of " +
+                                    std::to_string(nvinfer1::Dims::MAX_DIMS));
+    }
+    nvinfer1::Dims dims{};
     dims.nbDims = static_cast<std::int32_t>(shape.size());
     for (std::size_t i = 0; i < shape.size(); ++i) {
         dims.d[i] = shape[i];
@@ -167,24 +172,20 @@ void TrtEngine::set_input_shape(const std::string& name, const std::vector<std::
     info.shape = shape;
     info.volume = volume_of(shape);
 
-    void*& ptr = impl_->device_buffers[name];
-    if (ptr != nullptr) {
-        cudaFree(ptr);
-        ptr = nullptr;
-    }
-    FP_CUDA_CHECK(cudaMalloc(&ptr, info.volume * info.element_size));
-    impl_->context->setTensorAddress(name.c_str(), ptr);
+    auto& buffer = impl_->device_buffers[name];
+    buffer.reset(info.volume * info.element_size);
+    impl_->context->setTensorAddress(name.c_str(), buffer.get());
 }
 
 void TrtEngine::copy_input(const std::string& name, const void* host_src, std::size_t bytes,
                            cudaStream_t stream) {
-    void* dst = impl_->device_buffers.at(name);
+    void* dst = impl_->device_buffers.at(name).get();
     FP_CUDA_CHECK(cudaMemcpyAsync(dst, host_src, bytes, cudaMemcpyHostToDevice, stream));
 }
 
 void TrtEngine::copy_output(const std::string& name, void* host_dst, std::size_t bytes,
                             cudaStream_t stream) const {
-    void* src = impl_->device_buffers.at(name);
+    const void* src = impl_->device_buffers.at(name).get();
     FP_CUDA_CHECK(cudaMemcpyAsync(host_dst, src, bytes, cudaMemcpyDeviceToHost, stream));
 }
 
@@ -195,11 +196,11 @@ void TrtEngine::infer(cudaStream_t stream) {
 }
 
 void* TrtEngine::device_ptr(const std::string& name) {
-    return impl_->device_buffers.at(name);
+    return impl_->device_buffers.at(name).get();
 }
 
 const void* TrtEngine::device_ptr(const std::string& name) const {
-    return impl_->device_buffers.at(name);
+    return impl_->device_buffers.at(name).get();
 }
 
 const BindingInfo& TrtEngine::binding(const std::string& name) const {
