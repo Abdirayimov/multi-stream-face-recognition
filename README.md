@@ -41,9 +41,9 @@ name, so it works directly with insightface's stock `buffalo_l`
 ```
 
 > Built inside the project's Docker image (`docker/Dockerfile`, which is
-> based on the DeepStream devel image) and run on an RTX 4080. The tool
-> itself needs neither FAISS nor DeepStream at runtime — it is a
-> detection-only build.
+> based on the DeepStream devel image) and run on an RTX 4080 Laptop
+> (12 GB). The tool itself needs neither FAISS nor DeepStream at
+> runtime — it is a detection-only build.
 
 ---
 
