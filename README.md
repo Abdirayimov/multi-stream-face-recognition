@@ -40,9 +40,10 @@ name, so it works directly with insightface's stock `buffalo_l`
     --input group.jpg --output annotated.jpg
 ```
 
-> Built and run inside the project's DeepStream Docker image
-> (detection-only build: no FAISS / DeepStream needed for this tool)
-> on an RTX 4080.
+> Built inside the project's Docker image (`docker/Dockerfile`, which is
+> based on the DeepStream devel image) and run on an RTX 4080. The tool
+> itself needs neither FAISS nor DeepStream at runtime — it is a
+> detection-only build.
 
 ---
 
@@ -56,11 +57,11 @@ and the wire:
 - **Pipeline plumbing.** Keeping a GStreamer / DeepStream pipeline alive
   while sources connect, disconnect, and stall under load. Backpressure,
   graceful source removal, batched-push timing, EOS handling.
-- **Batched, asynchronous inference.** Detection runs per stream, but the
-  encoder wants its 32+ aligned crops in one TensorRT call to amortise the
-  context switch. That requires a probe that collects detections across
-  streams within a single frame, performs alignment, and pushes a single
-  batch to the encoder.
+- **Batched, asynchronous inference.** Detection runs per frame, but the
+  encoder wants its aligned crops in one TensorRT call to amortise the
+  context switch. That requires a probe that collects every detection in a
+  frame, aligns them, and pushes a single batch to the encoder — rather
+  than one call per face.
 - **Vector search at scale.** FAISS IVF-Flat is excellent up to roughly 100K
   enrolled identities; beyond that you need IVF-PQ or sharding, and the cost
   of getting `nlist`, `nprobe`, and the metric wrong shows up as silent
@@ -82,15 +83,20 @@ rather than every feature you would ship.
 - ArcFace ResNet50 embedder with batched TensorRT inference
 - 5-point face aligner using a Umeyama similarity transform
 - FAISS GPU index with adaptive IVF-Flat / IVF-PQ selection
-- Probe chain that batches detections across streams before encoding
+- Probe chain that aligns every face in a frame and encodes them in one
+  batched call, then applies the top-1/top-2 margin rule — unit-tested
+  end-to-end against stubbed backends
 - Multi-source DeepStream pipeline with thread-safe `add_source` / `remove_source`
-- Two CLI tools: `face_enroll` (build an index from a public dataset)
-  and `face_benchmark` (per-stage latency / throughput)
+- Three CLI tools: `face_detect` (annotate a still, used for the demo
+  above), `face_enroll` (build an index from a public dataset) and
+  `face_benchmark` (FAISS latency / throughput), plus the `face_server`
+  pipeline binary
 - Docker + docker-compose for reproducible runs
 - Structured JSON logging (`spdlog`)
-- GoogleTest suite (86 tests) over the algorithmic stages — Umeyama
-  transform, SCRFD decode, NMS, letterboxing, config validation and the
-  match decision — building without CUDA or TensorRT
+- GoogleTest suite (101 tests) over the algorithmic stages — Umeyama
+  transform, SCRFD decode, NMS, letterboxing, config validation, the
+  match decision, and the recognition chain itself — building without
+  CUDA or TensorRT
 
 ## Architecture
 
@@ -114,6 +120,12 @@ RTSP / file ──► │ uridecode│ ──►│nvstream  │ ──►│   
                                   FrameResult callback
                                   (logging / Redis / DB)
 ```
+
+Everything from the src-pad probe downwards is the design, not the
+current state: the probe is **not attached**, so on a live stream the
+pipeline stops after `nvinfer`. `ProbeChain` and its three stages are
+implemented and tested end-to-end, just not yet driven by GStreamer.
+See [Limitations](#limitations).
 
 ## Performance
 
@@ -248,6 +260,13 @@ parameters. The most important sections:
 
 ## Limitations
 
+- **The DeepStream path does not run the recognition chain.** No src-pad
+  probe is attached to `nvinfer`, so `face_server` builds the pipeline and
+  runs SCRFD, but the detections are never handed to `ProbeChain` — align,
+  encode, search and the margin rule are not invoked on a live stream. The
+  chain is complete and unit-tested end-to-end against stubbed encoder and
+  index backends (`tests/test_probe_chain.cpp`); attaching it to a live pad
+  is the remaining integration step and is on the roadmap.
 - Only the face track is implemented. Real deployments often need a
   second pass over body crops (re-ID) or multi-mode tracking; both are
   out of scope for this reference.
@@ -261,6 +280,8 @@ parameters. The most important sections:
 
 ## Roadmap
 
+- [ ] Attach the src-pad probe so the recognition chain runs on a live
+      DeepStream stream, not only under test
 - [ ] gRPC façade for camera management and identity enrollment
 - [ ] PostgreSQL + pgvector store as a fallback / persistence layer
 - [ ] NvDCF tracker integration with per-track recognition fusion

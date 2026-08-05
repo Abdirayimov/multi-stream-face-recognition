@@ -66,8 +66,13 @@ DeepStreamPipeline::DeepStreamPipeline(const config::PipelineConfig& cfg,
         throw std::runtime_error("failed to link streammux -> pgie -> sink");
     }
 
-    // The src-pad probe on pgie would normally hand metadata to probe_chain_;
-    // wiring is done in `start()` to keep construction deterministic.
+    // NOTE: the src-pad probe that would hand nvinfer's tensor metadata to
+    // probe_chain_ is not attached — not here and not in start(). The
+    // pipeline therefore runs the detector and drops its output on the
+    // floor; nothing calls ProbeChain::process from this class. The chain
+    // itself is exercised end-to-end by tests/test_probe_chain.cpp against
+    // stubbed backends. Wiring it to a live pad is the remaining
+    // integration step; see the README's Limitations section.
     (void)probe_chain_;
 }
 

@@ -24,16 +24,23 @@ flowchart LR
     Faiss --> Out[FrameResult callback]
 ```
 
+> **Current state.** Everything from `src-pad probe` rightwards describes
+> the intended wiring, not what runs today: `DeepStreamPipeline` never
+> attaches the probe, so a live stream stops after `nvinfer`. `ProbeChain`
+> and the three stages behind it are implemented and covered end-to-end by
+> `tests/test_probe_chain.cpp` against stubbed encoder and index backends.
+> Attaching the probe is the remaining integration step.
+
 ## Threading model
 
 - The GStreamer main loop runs on a dedicated thread inside
   `DeepStreamPipeline`. All pad / element manipulation goes through this
   thread (or the GLib main context).
-- The src-pad probe is invoked on a streaming thread owned by
-  `nvinfer`. From there, alignment and encoding happen synchronously on
-  the same thread, so heavy work in the probe will throttle the upstream
-  pipeline. Move that work behind a queue if you need to scale beyond
-  ~8 streams.
+- The src-pad probe is *designed* to be invoked on a streaming thread
+  owned by `nvinfer` (it is not attached yet — see above). From there,
+  alignment and encoding would happen synchronously on the same thread,
+  so heavy work in the probe will throttle the upstream pipeline. Move
+  that work behind a queue if you need to scale beyond ~8 streams.
 - `add_source` / `remove_source` are safe to call from any thread; they
   hold an internal mutex while creating bins and requesting muxer pads.
 
