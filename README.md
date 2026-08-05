@@ -127,7 +127,7 @@ floor, not a benchmark.
 | SCRFD detection (per frame)    |       ~7 ms | ~140 FPS @ batch 8 |
 | ArcFace encoding (per face)    |       ~2 ms | ~500 faces/s @ batch 32 |
 | FAISS search, n=10K, top-5     |     ~0.3 ms | ~3K queries/s     |
-| FAISS search, n=100K, top-5    |     ~0.9 ms | ~1K queries/s     |
+| FAISS search, n=50K, top-5     |     ~0.9 ms | ~1K queries/s     |
 
 `tools/face_benchmark` regenerates the FAISS numbers locally; the rest
 require trained engines built from the public InsightFace ONNX
