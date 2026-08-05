@@ -34,9 +34,14 @@ std::uint32_t default_nlist(std::size_t n) {
 }  // namespace
 
 struct FaissSearcher::Impl {
+    // Declaration order matters here, and only in one direction: members
+    // are destroyed in reverse, so gpu_resources must come FIRST to be
+    // destroyed LAST. A GpuIndex releases its device allocations through
+    // the resources object in its own destructor; outliving that object
+    // is a use-after-free. Do not reorder these three.
+    std::unique_ptr<faiss::gpu::StandardGpuResources> gpu_resources;
     std::unique_ptr<faiss::Index> index_cpu;
     std::unique_ptr<faiss::Index> index_gpu;
-    std::unique_ptr<faiss::gpu::StandardGpuResources> gpu_resources;
     bool on_gpu = false;
 };
 
