@@ -190,7 +190,7 @@ docker compose up --build
 │   ├── trt/                  # TRT engine, SCRFD, ArcFace
 │   └── utils/                # Logger, CUDA helpers
 ├── src/                      # Implementation files (mirrors include/)
-├── tools/                    # face_enroll.cpp, benchmark.cpp
+├── tools/                    # face_detect.cpp, face_enroll.cpp, benchmark.cpp
 ├── scripts/                  # download_models.sh, build_engines.sh, ...
 └── docs/
 ```
@@ -226,7 +226,7 @@ cmake --build build-tests -j
 ctest --test-dir build-tests --output-on-failure
 ```
 
-86 tests cover the Umeyama similarity transform, letterboxing and its
+101 tests cover the Umeyama similarity transform, letterboxing and its
 coordinate round-trip, SCRFD anchor counts and distance decoding, IoU
 and NMS, config parsing plus validation, and the recognition margin
 rule. GoogleTest is fetched at configure time (pinned to `v1.14.0`).
